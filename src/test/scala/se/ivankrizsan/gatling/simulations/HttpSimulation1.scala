@@ -21,52 +21,53 @@ import io.gatling.http.Predef._
 import io.gatling.http.protocol.HttpProtocolBuilder
 import io.gatling.http.request.builder.HttpRequestBuilder.toActionBuilder
 
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.language.postfixOps
+
 /**
-  * Example Gatling load test that sends one HTTP GET requests to a URL.
-  * Note that the request is redirected and this causes the request count to become two.
-  * Run this simulation with:
-  * mvn -Dgatling.simulation.name=HttpSimulation1 gatling:test
-  *
-  * @author Ivan Krizsan
-  */
+ * Example Gatling load test that sends one HTTP GET requests to a URL.
+ * Note that the request is redirected and this causes the request count to become two.
+ * Run this simulation with:
+ * mvn -Dgatling.simulation.name=HttpSimulation1 gatling:test
+ *
+ * @author Ivan Krizsan
+ */
 class HttpSimulation1 extends Simulation {
-    /* Place for arbitrary Scala code that is to be executed before the simulation begins. */
-    before {
-        println("***** My simulation is about to begin! *****")
-    }
 
-    /* Place for arbitrary Scala code that is to be executed after the simulation has ended. */
-    after {
-        println("***** My simulation has ended! ******")
-    }
+  val rampUpUsers: Int = 100
+  val rampUpDuration: Int = 1
 
-    /*
-     * A HTTP protocol builder is used to specify common properties of request(s) to be sent,
-     * for instance the base URL, HTTP headers that are to be enclosed with all requests etc.
-     */
-    val theHttpProtocolBuilder: HttpProtocolBuilder = http
-        .baseUrl("http://computer-database.gatling.io")
+  val constantUsers: Int = 150
+  val constantSeconds: Int = 90
 
-    /*
-     * A scenario consists of one or more requests. For instance logging into a e-commerce
-     * website, placing an order and then logging out.
-     * One simulation can contain many scenarios.
-     */
-    /* Scenario1 is a name that describes the scenario. */
-    val theScenarioBuilder: ScenarioBuilder = scenario("Scenario1")
-        .exec(
-            /* myRequest1 is a name that describes the request. */
-            http("myRequest1")
-                .get("/")
-        )
+  // RequestCount = ((constantUsers * seconds) + rampUsers) * 2
 
-    /*
-     * Define the load simulation.
-     * Here we can specify how many users we want to simulate, if the number of users is to increase
-     * gradually or if all the simulated users are to start sending requests at once etc.
-     * We also specify the HTTP protocol builder to be used by the load simulation.
-     */
-    setUp(
-        theScenarioBuilder.inject(atOnceUsers(1))
-    ).protocols(theHttpProtocolBuilder)
+  before {
+    println("***** Simulation is about to begin! *****")
+  }
+  after {
+    println("***** Simulation has ended! ******")
+  }
+  val theHttpProtocolBuilder: HttpProtocolBuilder = http
+    .baseUrl("http://127.0.0.1:8080")
+
+  val theScenarioBuilder: ScenarioBuilder = scenario("Reiseloesung-Anfrage Simulation")
+    .exec(
+      http("Hinfahrt Direkt")
+        .get("/reiseloesung?abfahrtLocation=frankfurt&ankunftLocation=erfurt" +
+          "&hinfahrtDate=2022-08-01T08:00&trainType=ICE")
+    )
+    .exec(
+      http("Hin/Rueck mit Umstieg")
+        .get("/reiseloesung?abfahrtLocation=frankfurt&ankunftLocation=rostock&" +
+          "hinfahrtDate=2022-08-01&rueckfahrtDate=2022-08-04T09:00&trainType=ice")
+    )
+
+  setUp(
+    theScenarioBuilder.inject(
+      rampUsers(rampUpUsers).during(Duration(rampUpDuration, TimeUnit.SECONDS)),
+      constantUsersPerSec(constantUsers).during(constantSeconds)
+    )
+  ).protocols(theHttpProtocolBuilder)
 }
